@@ -1,0 +1,13 @@
+<language_definitions>
+ <language processor="F2MC-16LX"
+ endian="little"
+ size="24"
+ variant="default"
+ version="0.1"
+ slafile="F2MC.sla"
+ processorspec="F2MC.pspec"
+ id="F2MC:LE:24:default">
+ <description>asdba MeP-c4, little endian</description>
+ <compiler name="default" spec="F2MC.cspec" id="default"/>
+ </language>
+</language_definitions> 
