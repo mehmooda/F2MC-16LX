@@ -8,12 +8,26 @@ define register offset=0 size=4 [ A ];
 define register offset=4 size=3 [ US ];
 define register offset=8 size=3 [ SS ];
 define register offset=12 size=3 [ UPC ];
-define register offset=0 size=2 [ AL AH		USP _		SP _		PC _		PS ];
-define register offset=0 size=1 [ ALL LH _ _	_ _ USB _	_ _ SSB _	_ _ PCB _	_ _ DPR DTB ADB CCR RP ILM I U Z C N V T ];
+define register offset=0 size=2 [ AL      AH      USP _         SSP _         PC  _        ];
+define register offset=0 size=1 [ ALL ALH _ _     _ _ USB _     _ _ SSB _     _ _ PCB _    DPR DTB ADB ];
 
-define register offset=0x20 size=4 [ RL0 RL1 RL2 RL3 BOVERRIDE];
-define register offset=0x20 size=2 [ RW0 RW1 RW2 RW3 RW4 RW5 RW6 RW7];
-define register offset=0x28 size=1 [ R0 R1 R2 R3 R4 R5 R6 R7];
+define register offset=0x20 size=4 [ RL0         RL1         RL2         RL3         BOVERRIDE ];
+define register offset=0x20 size=2 [ RW0 RW1     RW2 RW3     RW4 RW5     RW6 RW7 ];
+define register offset=0x20 size=1 [ _ _ _ _     _ _ _ _     R0 R1 R2 R3 R4 R5 R6 R7 ];
+
+define register offset=0x40 size=2 [ PS ];
+define register offset=0x40 size=1 [ CCR _ ];
+
+@define C   "PS[0,1]"  # Carry flag
+@define V   "PS[1,1]"  # Overflow flag
+@define Z   "PS[2,1]"  # Zero flag
+@define N   "PS[3,1]"  # Negative flag
+@define T   "PS[4,1]"  # Sticky bit flag
+@define S   "PS[5,1]"  # Stack flag
+@define I   "PS[6,1]"  # Interrupt enable flag
+@define RP  "PS[8,5]"  # Register bank pointer
+@define ILM "PS[13,3]" # Interrupt level mask register
+
 
 define context BOVERRIDE
   override=(0,0) noflow
@@ -37,8 +51,8 @@ define token B1 ( 8 )
   reg1rw=(0,2);
 
 
-attach variables [reg1r] [R0 R1 R2 R3 R4 R5 R6 R7]; 
-attach variables [reg1rw] [RW0 RW1 RW2 RW3 RW4 RW5 RW6 RW7]; 
+attach variables [reg1r] [R0 R1 R2 R3 R4 R5 R6 R7];
+attach variables [reg1rw] [RW0 RW1 RW2 RW3 RW4 RW5 RW6 RW7];
 
 define token B2 ( 8 )
   opcode2=(0,7)
@@ -62,15 +76,13 @@ define token imb ( 8 )
   imm8 = (0,7);
 define token imw ( 16 )
   imm16 = (0,15);
+define token iml ( 32 )
+  imm32 = (0,31);
 
 define token disp8 ( 8 )
   d8 = (0,7) signed;
 define token disp16 ( 16 )
   d16 = (0,15) signed;
-
-
-define token iml ( 32 )
-  imm32 = (0,31);
 
 define token Dir ( 8 )
   adir = (0,7);
@@ -91,14 +103,14 @@ define token Rlist ( 8 )
   arlst6 = (6,6)
   arlst7 = (7,7);
 
-rlst7:RW7 is arlst7=1 & RW7{}
-rlst6:RW6 is arlst6=1 & RW6{}
-rlst5:RW5 is arlst5=1 & RW5{}
-rlst4:RW4 is arlst4=1 & RW4{}
-rlst3:RW3 is arlst3=1 & RW3{}
-rlst2:RW2 is arlst2=1 & RW2{}
-rlst1:RW1 is arlst1=1 & RW1{}
-rlst0:RW0  is arlst0=1 & RW0{}
+rlst7:RW7 is arlst7=1 & RW7 {}
+rlst6:RW6 is arlst6=1 & RW6 {}
+rlst5:RW5 is arlst5=1 & RW5 {}
+rlst4:RW4 is arlst4=1 & RW4 {}
+rlst3:RW3 is arlst3=1 & RW3 {}
+rlst2:RW2 is arlst2=1 & RW2 {}
+rlst1:RW1 is arlst1=1 & RW1 {}
+rlst0:RW0 is arlst0=1 & RW0 {}
 rlst7: is arlst7=0 {}
 rlst6: is arlst6=0 {}
 rlst5: is arlst5=0 {}
@@ -121,7 +133,7 @@ dir: bover:DPR:adir is adir & DPR & bover {
   tmp[8,8] = DPR;
   tmp[16,8] = bover;
   export tmp;
-} 
+}
 pcaddr16: addr is aaddr16 [addr = inst_start & 0xff0000 | aaddr16;] {export *[ram]:4 addr;}
 addr16: bover:aaddr16 is aaddr16 & override=1 & bover {
   local tmp:3 = aaddr16;
@@ -141,111 +153,225 @@ io: ioaddr is ioaddr { local tmp:3 = zext(ioaddr:1); export tmp; }
 
 
 cond:"Z" is conds=0 {
-  out=(Z==1);
+  out=($(Z)==1);
   export out;
 }
 cond:"NZ" is conds=1 {
-  out=(Z==0);
+  out=($(Z)==0);
   export out;
 }
 cond:"C" is conds=2 {
-  out=(C==1);
+  out=($(C)==1);
   export out;
 }
 cond:"NC" is conds=3 {
-  out=(C==0);
+  out=($(C)==0);
   export out;
 }
 cond:"N" is conds=4 {
-  out=(N==1);
+  out=($(N)==1);
   export out;
 }
 cond:"P" is conds=5 {
-  out=(N==0);
+  out=($(N)==0);
   export out;
 }
 cond:"V" is conds=6 {
-  out=(V==1);
+  out=($(V)==1);
   export out;
 }
 cond:"NV" is conds=7 {
-  out=(V==0);
+  out=($(V)==0);
   export out;
 }
 cond:"T" is conds=8 {
-  out=(T==1);
+  out=($(T)==1);
   export out;
 }
 cond:"NT" is conds=9 {
-  out=(T==0);
+  out=($(T)==0);
   export out;
 }
 cond:"LT" is conds=10 {
-  out=((V^N) == 1);
+  out=(($(V)^$(N)) == 1);
   export out;
 }
 cond:"GE" is conds=11 {
-  out=((V^N)== 0);
+  out=(($(V)^$(N))== 0);
   export out;
 }
 cond:"LE" is conds=12 {
-  out=(((V^N) | Z) == 1);
+  out=((($(V)^$(N)) | $(Z)) == 1);
   export out;
 }
 cond:"GT" is conds=13 {
-  out=(((V^N) | Z) == 0);
+  out=((($(V)^$(N)) | $(Z)) == 0);
   export out;
 }
 cond:"LS" is conds=14 {
-  out=((C|Z)==1);
+  out=(($(C)|$(Z))==1);
   export out;
 }
 cond:"HI" is conds=15 {
-  out=((C|Z)==0);
+  out=(($(C)|$(Z))==0);
   export out;
 }
 
-macro zset1(val) {
-  local tmp=1:1;
-  if (val==0:1) goto <zset>;
-  tmp = 0:1;
-  <zset>
-  Z = tmp;
+macro zset(val) {
+  $(Z) = val == 0;
 }
-macro nset1(val) {
-  local tmp:1 = 1:1;
-  if ((val&0x80:1)==0x80:1) goto <nset>;
-  tmp = 0:1;
-  <nset>
-  N = tmp;
+
+macro nset(val) {
+  $(N) = val s< 0;
 }
-macro zset2(val) {
-  local tmp = 1:1;
-  if (val==0:2) goto <zset>;
-  tmp = 0:1;
-  <zset>
-  Z = tmp;
+
+macro add(op1, op2) {
+  $(V) = scarry(op1, op2);
+  $(C) = carry(op1, op2);
+  op1 = op1 + op2;
+  zset(op1);
+  nset(op1);
 }
-macro nset2(val) {
-  local tmp:1 = 1:1;
-  if ((val&0x8000:2)==0x8000:2) goto <nset>;
-  tmp = 0:1;
-  <nset>
-  N = tmp;
+
+macro cmp(op1, op2) {
+  $(V) = sborrow(op1, op2);
+  $(C) = carry(op1, -op2);
+  local tmp = op1 - op2;
+  zset(tmp);
+  nset(tmp);
 }
-macro zset4(val) {
-  local tmp = 1:1;
-  if (val==0:4) goto <zset>;
-  tmp = 0:1;
-  <zset>
-  Z = tmp;
+
+macro neg(op1) {
+  $(V) = sborrow(0, op1);
+  $(C) = carry(0, -op1);
+  op1 = -op1;
+  zset(op1);
+  nset(op1);
 }
-macro nset4(val) {
-  local tmp:1 = 1:1;
-  if ((val&0x80000000:4)==0x80000000:4) goto <nset>;
-  tmp = 0:1;
-  <nset>
-  N = tmp;
+
+macro not(op1) {
+  $(V) = 0;
+  op1 = ~op1;
+  zset(op1);
+  nset(op1);
+}
+
+macro sub(op1, op2) {
+  $(V) = sborrow(op1, op2);
+  $(C) = carry(op1, -op2);
+  op1 = op1 - op2;
+  zset(op1);
+  nset(op1);
+}
+
+macro addc(op1, op2) {
+  $(V) = scarry(op1, op2 + zext($(C)));
+  $(C) = carry(op1, op2 + zext($(C)));
+  op1 = op1 + op2 + zext($(C));
+  zset(op1);
+  nset(op1);
+}
+
+macro subc(op1, op2) {
+  $(V) = sborrow(op1, op2 - zext($(C)));
+  $(C) = carry(op1, -op2 - zext($(C)));
+  op1 = op1 - op2 - zext($(C));
+  zset(op1);
+  nset(op1);
+}
+
+macro and(op1, op2) {
+  $(V) = 0;
+  op1 = op1 & op2;
+  zset(op1);
+  nset(op1);
+}
+
+macro or(op1, op2) {
+  $(V) = 0;
+  op1 = op1 | op2;
+  zset(op1);
+  nset(op1);
+}
+
+macro xor(op1, op2) {
+  $(V) = 0;
+  op1 = op1 ^ op2;
+  zset(op1);
+  nset(op1);
+}
+
+macro lsl(op1, count) {
+  local i = count;
+  $(T) = 0;
+<cycle>
+  if (i == 0:1) goto <end>;
+  $(C) = op1 s< 0;
+  $(T) = $(T) | $(C);
+  op1 = op1 << 1;
+  i = i - 1:1;
+  goto <cycle>;
+<end>
+  nset(op1);
+  zset(op1);
+}
+
+macro lsr(op1, count) {
+  local i = count;
+  $(T) = 0;
+<cycle>
+  if (i == 0:1) goto <end>;
+  $(C) = (op1 & 1) != 0;
+  $(T) = $(T) | $(C);
+  op1 = op1 >> 1;
+  i = i - 1:1;
+  goto <cycle>;
+<end>
+  nset(op1);
+  zset(op1);
+}
+
+macro asr(op1, count) {
+  $(C) = (op1 & (1 << (count - 1))) != 0;
+  op1 = op1 s>> count;
+  nset(op1);
+  zset(op1);
+}
+
+macro rolc(op1, count, width) {
+  $(C) = (op1 & (1 << (count - 1))) != 0;
+  op1 = (op1 << count) | (op1 >> (width - count));
+  nset(op1);
+  zset(op1);
+}
+
+macro rorc(op1, count, width) {
+  $(C) = (op1 & (1 << (count - 1))) != 0;
+  op1 = (op1 >> count) | (op1 << (width - count));
+  nset(op1);
+  zset(op1);
+}
+
+macro div(op1, op2) {
+  local quotient = op1 / zext(op2);
+  local remainder = op1 % zext(op2);
+  op1 = (op1 & 0xff00) | quotient;
+  op2 = remainder;
+}
+
+macro divw(op1, op2) {
+  local quotient = op1 / zext(op2);
+  local remainder = op1 % zext(op2);
+  op1 = (op1 & 0xffff0000) | quotient;
+  op2 = remainder:2;
+}
+
+macro mul(op1, op2) {
+  op1 = zext(op1:1) * zext(op2);
+}
+
+macro mulw(op1, op2) {
+  op1 = zext(op1:2) * zext(op2);
 }
 
 macro push1(val) {
@@ -284,8 +410,15 @@ macro pop4(addr) {
 
 :NOP is opcode=0x00 {}
 :IN9 addr is opcode=0x01 [addr=0xffffd8;] { local tmp:3 = *[ram] addr:3; call [tmp]; }
-:ADDDC	A is opcode=0x02 & A unimpl
-:NEG A is opcode=0x03 & A unimpl
+:ADDDC	A is opcode=0x02 & A {
+  local car = ((AL & 0xf) > 9);
+  AL = AH + AL + zext(6 * car);
+  $(C) = $(C) | car * carry(AL, 6);
+  car = ((AL & 0xf0) > 0x90) | $(C);
+  AL = AH + AL + zext(0x60 * car);
+  $(C) = car;
+}
+:NEG A is opcode=0x03 & A { neg(A); }
 :PCB is opcode=0x04 [override=1; base=1; globalset(inst_next,override); globalset(inst_next,base);] {}
 :DTB is opcode=0x05 [override=1; base=0; globalset(inst_next,override); globalset(inst_next,base);] {}
 :ADB is opcode=0x06 [override=1; base=2; globalset(inst_next,override); globalset(inst_next,base);] {}
@@ -299,220 +432,225 @@ macro pop4(addr) {
   SS[0,16] = RW3;
   pop2(RW3);
 }
-:MOV RP, imm8 is RP & opcode=0x0A; imm8 & (rpval < 0x20)
-{
-  RP = imm8;
+:MOV "RP", imm8 is opcode=0x0A; imm8 & (rpval < 0x20) {
+  $(RP) = imm8;
 }
-:NEGW	A is opcode=0x0B & A unimpl
-:LSLW	A is opcode=0x0C & A unimpl
-########?? opcode=Ox0D unimpl
-:ASRW	A is opcode=0x0E & A unimpl
-:LSRW	A is opcode=0x0F & A unimpl
+:NEGW	A is opcode=0x0B & A { neg(AL); }
+:LSLW	A is opcode=0x0C & A { lsl(AL, 1); }
+########?? opcode=Ox0D
+:ASRW	A is opcode=0x0E & A { asr(AL, 1); }
+:LSRW	A is opcode=0x0F & A { lsr(AL, 1); }
 
-:CMR	is opcode=0x10 unimpl
-:NCC	is opcode=0x11 unimpl
-:SUBDC	A is opcode=0x12 & A unimpl
-:JCTX	@A is opcode=0x13 & A unimpl
+:CMR	is opcode=0x10 {}
+:NCC	is opcode=0x11 {}
+:SUBDC	A is opcode=0x12 & A {
+  local car = ((AL & 0xf) > 9);
+  AL = AH - AL - zext(6 * car);
+  $(C) = $(C) | car * (AL < 6);
+  car = (AL > 0x9f) | $(C);
+  AL = AH - AL - zext(0x60 * car);
+  $(C) = car;
+}
+:JCTX	@A is opcode=0x13 & A {
+  local tmp:3 = 0x10000:3 * zext(DTB) | zext(AL);
+  PS = *:2 tmp;
+  tmp = tmp + 2;
+  PC = *:2 tmp;
+  tmp = tmp + 2;
+  DTB = *:1 tmp;
+  tmp = tmp + 1;
+  PCB = *:1 tmp;
+  tmp = tmp + 2;
+  DPR = *:1 tmp;
+  tmp = tmp + 1;
+  ADB = *:1 tmp;
+  tmp = tmp + 2;
+  AL = *:2 tmp;
+  tmp = tmp + 2;
+  AH = *:2 tmp;
+}
 :EXT	is opcode=0x14 {
   AL=sext(ALL);
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
 :ZEXT	is opcode=0x15 {
   AL=zext(ALL);
-  zset2(AL);
-  N=0;
+  zset(AL);
+  $(N)=0;
 }
 :SWAP	is opcode=0x16 {
   local tmp:1 = ALL;
-  ALL=LH;
-  LH=tmp;
+  ALL=ALH;
+  ALH=tmp;
 }
-:ADD SP, imm8 is opcode=0x17 & SP; imm8 {
+:ADD SSP, imm8 is opcode=0x17 & SSP; imm8 {
   SS=SS+imm8;
 }
-:ADDL A, imm32 is opcode=0x18 & A; imm32 unimpl
-:SUBL A, imm32	is opcode=0x19 & A; imm32 unimpl
-:MOV  ILM, imm8 is opcode=0x1A & ILM; imm8 {
-  ILM = imm8;
+:ADDL A, imm32 is opcode=0x18 & A; imm32 { add(A, imm32); }
+:SUBL A, imm32	is opcode=0x19 & A; imm32 { sub(A, imm32); }
+:MOV "ILM", imm8 is opcode=0x1A; imm8 {
+  $(ILM) = imm8;
 }
-:COMPL A, imm32	is opcode=0x1B & A; imm32 unimpl
+:CMPL A, imm32	is opcode=0x1B & A; imm32 { cmp(A, imm32); }
 :EXTW	is opcode=0x1C {
   A = sext(AL);
-  zset4(A);
-  nset4(A);
+  zset(A);
+  nset(A);
 }
 :ZEXTW	is opcode=0x1D {
   A = zext(AL);
-  zset4(A);
-  N=0;
- 
+  zset(A);
+  $(N)=0;
+
 }
 :SWAPW	is opcode=0x1E {
   local tmp:2 = AL;
   AL=AH;
   AH=tmp;
 }
-:ADD SP, imm16	is opcode=0x1F & SP; imm16 {
+:ADD SSP, imm16	is opcode=0x1F & SSP; imm16 {
   SS=SS+imm16;
 }
 
-:ADD A, @dir	is opcode=0x20 & A; dir unimpl
-:SUB A, @dir	is opcode=0x21 & A; dir unimpl
-:ADDC A	is opcode=0x22 & A unimpl
-:CMP A	is opcode=0x23 & A unimpl
+:ADD A, dir	is opcode=0x20 & A; dir { add(A, zext(*:1 dir)); }
+:SUB A, dir	is opcode=0x21 & A; dir { sub(A, zext(*:1 dir)); }
+:ADDC A	is opcode=0x22 & A { addc(AL, AH); }
+:CMP A	is opcode=0x23 & A { cmp(AL, AH); }
 
-macro flags2CCR() {
-  CCR = (I << 6) &
-    !(U << 5) &
-    (T << 4) &
-    (N << 3) &
-    (Z << 2) &
-    (V << 1) &
-    C;
-}
-
-macro CCR2flags() {
-  I=CCR[6,1];
-  U=!CCR[5,1];
-  T=CCR[4,1];
-  N=CCR[3,1];
-  Z=CCR[2,1];
-  V=CCR[1,1];
-  C=CCR[0,1];
-}
-
-:AND CCR, imm8 is opcode=0x24 & CCR; imm8 { 
-  flags2CCR();
+:AND CCR, imm8 is opcode=0x24 & CCR; imm8 {
   CCR = CCR & imm8;
-  CCR2flags();
 }
 :OR  CCR, imm8 is opcode=0x25 & CCR; imm8 {
-  flags2CCR();
   CCR = CCR | imm8;
-  CCR2flags();
 }
-:DIVU A	is opcode=0x26 & A unimpl
-:MULU A	is opcode=0x27 & A unimpl
-:ADDW A	is opcode=0x28 & A unimpl
-:SUBW A	is opcode=0x29 & A unimpl
+:DIVU A	is opcode=0x26 & A {
+  local quotient = AH / AL;
+  local remainder = AH % AL;
+  AL = quotient;
+  AH = remainder;
+}
+:MULU A	is opcode=0x27 & A { AL = zext(AH:1) * zext(AL:1); }
+:ADDW A	is opcode=0x28 & A {
+  $(V) = scarry(AL, AH);
+  $(C) = carry(AL, AH);
+  AL = AH + AL;
+  zset(AL);
+  nset(AL);
+}
+:SUBW A	is opcode=0x29 & A {
+  $(V) = sborrow(AL, AH);
+  $(C) = carry(AL, -AH);
+  AL = AH - AL;
+  zset(AL);
+  nset(AL);
+}
 :CBNE A, imm8, rel is opcode=0x2A & A; imm8; rel {
   if (ALL!=imm8) goto rel;
 }
-:CMPW A	is opcode=0x2B & A unimpl
-:ANDW A	is opcode=0x2C & A unimpl
-:ORW A	is opcode=0x2D & A unimpl
-:XORW A	is opcode=0x2E & A unimpl
-:MULUW A is opcode=0x2F & A unimpl
+:CMPW A	is opcode=0x2B & A {
+  $(V) = sborrow(AL, AH);
+  $(C) = carry(AL, -AH);
+  local tmp = AH - AL - zext($(C));
+  zset(tmp);
+  nset(tmp);
+}
+:ANDW A	is opcode=0x2C & A { and(AL, AH); }
+:ORW A	is opcode=0x2D & A { or(AL, AH); }
+:XORW A	is opcode=0x2E & A { xor(AL, AH); }
+:MULUW A is opcode=0x2F & A { A = zext(AH) * zext(AL); }
 
-:ADD A, imm8	is opcode=0x30 & A; imm8 unimpl
-:SUB A, imm8	is opcode=0x31 & A; imm8 unimpl
-:SUBC A	is opcode=0x32 & A unimpl
-:CMP A, imm8	is opcode=0x33 & A; imm8 unimpl
-:AND A, imm8	is opcode=0x34 & A; imm8 {
-  ALL = ALL & imm8;
-  zset1(ALL);
-  nset1(ALL);
-  V=0;
+:ADD A, imm8	is opcode=0x30 & A; imm8 { add(A, imm8:4); }
+:SUB A, imm8	is opcode=0x31 & A; imm8 { sub(A, imm8:4); }
+:SUBC A	is opcode=0x32 & A {
+  $(V) = sborrow(AL, AH - zext($(C)));
+  $(C) = carry(AL, -AH - zext($(C)));
+  AL = AH - AL - zext($(C));
+  zset(AL);
+  nset(AL);
 }
-:OR A, imm8	is opcode=0x35 & A; imm8 {
-  ALL = ALL | imm8;
-  zset1(ALL);
-  nset1(ALL);
-  V=0;
-}
-:XOR A, imm8	is opcode=0x36 & A; imm8 unimpl
-:NOT A	is opcode=0x37 & A unimpl
-:ADDW A, imm16	is opcode=0x38 & A; imm16 unimpl
-:SUBW A, imm16	is opcode=0x39 & A; imm16 {
-  V = sborrow(AL,imm16);
-  C = carry(AL,-imm16);
-  AL=AL-imm16;
-  zset2(AL);
-  nset2(AL);
-}
+:CMP A, imm8	is opcode=0x33 & A; imm8 { cmp(ALL, imm8); }
+:AND A, imm8	is opcode=0x34 & A; imm8 { and(ALL, imm8); }
+:OR A, imm8	is opcode=0x35 & A; imm8 { or(ALL, imm8); }
+:XOR A, imm8	is opcode=0x36 & A; imm8 { xor(ALL, imm8); }
+:NOT A	is opcode=0x37 & A { not(A); }
+:ADDW A, imm16	is opcode=0x38 & A; imm16 { add(AL, imm16); }
+:SUBW A, imm16	is opcode=0x39 & A; imm16 { sub(AL, imm16); }
 :CWBNE A, imm16, rel is opcode=0x3A & A; imm16; rel {
   if (AL!=imm16) goto rel;
 }
-:CMPW A, imm16	is opcode=0x3B & A; imm16 {
-  V = sborrow(AL,imm16);
-  C = carry(AL,-imm16);
-  local tmp=AL-imm16;
-  zset2(tmp);
-  nset2(tmp);
-  
-}
-:ANDW A, imm16	is opcode=0x3C & A; imm16 unimpl
-:ORW A, imm16	is opcode=0x3D & A; imm16 unimpl
-:XORW A, imm16	is opcode=0x3E & A; imm16  unimpl
-:NOTW A	is opcode=0x3F & A unimpl
+:CMPW A, imm16	is opcode=0x3B & A; imm16 { cmp(AL, imm16); }
+:ANDW A, imm16	is opcode=0x3C & A; imm16 { and(AL, imm16); }
+:ORW A, imm16	is opcode=0x3D & A; imm16 { or(AL, imm16); }
+:XORW A, imm16	is opcode=0x3E & A; imm16 { xor(AL, imm16); }
+:NOTW A	is opcode=0x3F & A { not(AL); }
 
 :MOV A, dir	is opcode=0x40 & A; dir {
   AH=AL;
   AL=zext(*:1 dir);
-  zset1(ALL);
-  nset1(ALL);
+  zset(ALL);
+  nset(ALL);
 }
 :MOV dir, A	is opcode=0x41 & A; dir {
   *:1 dir = ALL;
-  zset1(ALL);
-  nset1(ALL);
+  zset(ALL);
+  nset(ALL);
 }
 :MOV A, imm8	is opcode=0x42 & A; imm8 {
-  zset1(imm8:1);
-  nset1(imm8:1);
+  zset(imm8:1);
+  nset(imm8:1);
   AH=AL;
   AL=zext(imm8:1);
 }
 :MOVX A, imm8	is opcode=0x43 & A; imm8 {
   AH=AL;
   AL=sext(imm8:1);
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
 :MOV dir, imm8	is opcode=0x44; dir; imm8 {
   *:1 dir = ALL;
-  nset1(ALL);
-  zset1(ALL);
+  nset(ALL);
+  zset(ALL);
 }
 :MOVX A, dir	is opcode=0x45 & A; dir {
   AH=AL;
   AL=sext(*:1 dir);
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
-:MOVW A, SP	is opcode=0x46 & A & SP {
+:MOVW A, SSP	is opcode=0x46 & A & SSP {
   AH = AL;
-  AL = SP;
-  zset2(AL);
-  nset2(AL);
+  AL = SSP;
+  zset(AL);
+  nset(AL);
 }
-:MOVW SP, A	is opcode=0x47 & A & SP {
-  SP=AL;
-  zset2(AL);
-  nset2(AL);
+:MOVW SSP, A	is opcode=0x47 & A & SSP {
+  SSP=AL;
+  zset(AL);
+  nset(AL);
 }
 :MOVW A, dir	is opcode=0x48 & A; dir {
   AH = AL;
   AL = *:2 dir;
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
 :MOVW dir, A	is opcode=0x49 & A; dir {
   *:2 dir = AL;
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
 :MOVW A, imm16	is opcode=0x4A & A; imm16 {
   AH=AL;
   AL=imm16;
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
 :MOVL A, imm32	is opcode=0x4B & A; imm32 {
   A=imm32;
-  zset4(A);
-  nset4(A);
+  zset(A);
+  nset(A);
 }
 :PUSHW	A is opcode=0x4C & A {
   push2(AL);
@@ -520,55 +658,57 @@ macro CCR2flags() {
 :PUSHW	AH is opcode=0x4D & AH {
   push2(AH);
 }
-:PUSHW  PS is opcode=0x4E & PS unimpl
+:PUSHW  PS is opcode=0x4E & PS {
+  push2(PS);
+}
 :PUSHW rlst is opcode=0x4F; rlst {
   if (rlst[0,1]==0) goto <r1>;
   push2(RW0);
-  <r1> 
+  <r1>
   if (rlst[1,1]==0) goto <r2>;
   push2(RW1);
-  <r2> 
+  <r2>
   if (rlst[2,1]==0) goto <r3>;
   push2(RW2);
-  <r3> 
+  <r3>
   if (rlst[3,1]==0) goto <r4>;
   push2(RW3);
-  <r4> 
+  <r4>
   if (rlst[4,1]==0) goto <r5>;
   push2(RW4);
-  <r5> 
+  <r5>
   if (rlst[5,1]==0) goto <r6>;
   push2(RW5);
-  <r6> 
+  <r6>
   if (rlst[6,1]==0) goto <r7>;
   push2(RW6);
   <r7>
   if (rlst[7,1]==0) goto <end>;
   push2(RW7);
-  <end> 
+  <end>
 }
 :MOV A, io is opcode=0x50; io; A {
   local v:1 = *:1 io;
-  zset1(v);
-  nset1(v);
+  zset(v);
+  nset(v);
   AH=AL;
   AL=zext(v);
 }
 :MOV io, A is opcode=0x51 & A; io {
-  zset1(ALL);
-  nset1(ALL);
+  zset(ALL);
+  nset(ALL);
   *:1 io = ALL;
 }
 :MOV A, addr16	is opcode=0x52 & A; addr16 {
   AH=AL;
   AL=zext(*:1 addr16);
-  zset1(ALL);
-  nset1(ALL);
+  zset(ALL);
+  nset(ALL);
 }
 :MOV addr16, A	is opcode=0x53 & A; addr16 {
   *:1 addr16 = ALL;
-  zset1(ALL);
-  nset1(ALL);
+  zset(ALL);
+  nset(ALL);
 }
 :MOV io, imm8	is opcode=0x54; io; imm8 {
   *:1 io = imm8;
@@ -576,41 +716,41 @@ macro CCR2flags() {
 :MOVX A, io	is opcode=0x55 & A; io {
   AH=AL;
   AL=sext(*:1 io);
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
 :MOVW io, imm16	is opcode=0x56; io; imm16 {
   *:2 io = imm16;
-  zset2(imm16);
-  nset2(imm16);
+  zset(imm16:2);
+  nset(imm16:2);
 }
 :MOVW A, addr16	is opcode=0x57 & A; addr16 {
   AH=AL;
   AL=*:2 addr16;
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
 :MOVW A, io	is opcode=0x58 & A; io {
   AH=AL;
   AL=*:2 io;
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
 :MOVW io, A	is opcode=0x59 & A; io {
   *:2 io = AL;
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
 :MOVW A, addr16	is opcode=0x5A & A; addr16 {
   AH=AL;
   AL=*:2 addr16;
-  zset2(AL);
-  nset2(AL);  
+  zset(AL);
+  nset(AL);
 }
 :MOVW addr16, A	is opcode=0x5B & A; addr16 {
   *:2 addr16 = AL;
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
 :POPW A	is opcode=0x5C & A {
   AH = AL;
@@ -619,32 +759,34 @@ macro CCR2flags() {
 :POPW AH	is opcode=0x5D & AH {
   pop2(AH);
 }
-:POPW PS  is opcode=0x5E & PS unimpl
+:POPW PS  is opcode=0x5E & PS {
+  pop2(PS);
+}
 :POPW rlst is opcode=0x5F; rlst {
   if (rlst[7,1]==0) goto <r1>;
   pop2(RW7);
-  <r1> 
+  <r1>
   if (rlst[6,1]==0) goto <r2>;
   pop2(RW6);
-  <r2> 
+  <r2>
   if (rlst[5,1]==0) goto <r3>;
   pop2(RW5);
-  <r3> 
+  <r3>
   if (rlst[4,1]==0) goto <r4>;
   pop2(RW4);
-  <r4> 
+  <r4>
   if (rlst[3,1]==0) goto <r5>;
   pop2(RW3);
-  <r5> 
+  <r5>
   if (rlst[2,1]==0) goto <r6>;
   pop2(RW2);
-  <r6> 
+  <r6>
   if (rlst[1,1]==0) goto <r7>;
   pop2(RW1);
   <r7>
   if (rlst[0,1]==0) goto <end>;
   pop2(RW0);
-  <end> 
+  <end>
 }
 
 :BRA rel is opcode=0x60; rel {
@@ -674,7 +816,7 @@ macro CCR2flags() {
 :INT vct8	is opcode=0x68; vct8 { call [vct8]; }
 :INT pcaddr16	is opcode=0x69; pcaddr16  { call pcaddr16; }
 :INTP addr24	is opcode=0x6A; addr24 { call addr24; }
-:RETI	is opcode=0x6B { return [SP]; }
+:RETI	is opcode=0x6B { return [SSP]; }
 ###6C 2 bytes
 define token B6C(8)
   opcode6c1=(5,7)
@@ -688,16 +830,16 @@ a6caddr: addr16 is opcode6caddr=3; addr16 { export addr16; }
 :MOVB A, a6caddr":"opcode6c3 is opcode=0x6C; (opcode6c1=0 & opcode6c3) ... & a6caddr & A {
   AH=AL;
   AL=(zext(*:1 a6caddr) >> opcode6c3) & 1:2;
-  zset1(ALL);
-  nset1(ALL);
+  zset(ALL);
+  nset(ALL);
 }
 :MOVB a6caddr":"opcode6c3, A is opcode=0x6C; (opcode6c1=1 & opcode6c3) ... & a6caddr & A{
   local tmp:1 = *:1 a6caddr;
   tmp = tmp & ~(~ALL[0,1] << opcode6c3);
   tmp = tmp | (ALL[0,1] << opcode6c3);
   *:1 a6caddr = tmp;
-  zset1(tmp);
-  nset1(tmp);
+  zset(tmp);
+  nset(tmp);
 }
 :CLRB a6caddr":"opcode6c3 is opcode=0x6C; (opcode6c1=2 & opcode6c3) ... & a6caddr {
   *:1 a6caddr = (*:1 a6caddr) & ~(1:1 << opcode6c3);
@@ -787,12 +929,12 @@ a6caddr: addr16 is opcode6caddr=3; addr16 { export addr16; }
   goto <loop>;
   <end>
 }
-:SCEQI reg6e2 is opcode=0x6E; opcode6e=8 & reg6e1=0 & reg6e2 unimpl
-:SCEQD reg6e2 is opcode=0x6E; opcode6e=9 & reg6e1=0 & reg6e2 unimpl
-:SCEQI reg6e2 is opcode=0x6E; opcode6e=10 & reg6e1=0 & reg6e2 unimpl
-:SCEQD reg6e2 is opcode=0x6E; opcode6e=11 & reg6e1=0 & reg6e2 unimpl
+:SCEQI reg6e2 is opcode=0x6E; opcode6e=8 & reg6e1=0 & reg6e2 {}
+:SCEQD reg6e2 is opcode=0x6E; opcode6e=9 & reg6e1=0 & reg6e2 {}
+:SCEQI reg6e2 is opcode=0x6E; opcode6e=10 & reg6e1=0 & reg6e2 {}
+:SCEQD reg6e2 is opcode=0x6E; opcode6e=11 & reg6e1=0 & reg6e2 {}
 :FILSI reg6e2 is opcode=0x6E; opcode6e=12 & reg6e1=0 & reg6e2 {
-# HANDLEOVERFLOW?
+#TODO HANDLEOVERFLOW?
   local dst:3 = zext(AH);
   dst[16,8] = reg6e2;
   <loop>
@@ -818,41 +960,106 @@ a6caddr: addr16 is opcode6caddr=3; addr16 { export addr16; }
 }
 ###6F 2 bytes
 :MOV A, reg6fbrg0 is opcode=0x6F; opcode2<0x05 & A & reg6fbrg0 {
-  zset1(reg6fbrg0);
-  nset1(reg6fbrg0);
+  zset(reg6fbrg0);
+  nset(reg6fbrg0);
   AH=AL;
   ALL=zext(reg6fbrg0);
 }
-:MOV A, "@A" is opcode=0x6F; opcode2=0x05 & A unimpl
-:MOV A, PCB is opcode=0x6F; opcode2=0x06 & A & PCB  unimpl
-:ROLC A is opcode=0x6F; (opcode2=0x07 | opcode2=0x17) & A unimpl
-:LSLW A, R0 is opcode=0x6F; opcode2=0x0C & A & R0 unimpl
-:MOVW A, "@A" is opcode=0x6F; opcode2=0x0D & A unimpl
-:ASRW A, R0 is opcode=0x6F; opcode2=0x0E & A & R0 unimpl
-:LSRW A, R0 is opcode=0x6F; opcode2=0x0F & A & R0 unimpl
+:MOV A, "@A" is opcode=0x6F; opcode2=0x05 & A {
+  A = *:4 A:3;
+  zset(A);
+  nset(A);
+}
+:MOV A, PCB is opcode=0x6F; opcode2=0x06 & A & PCB  {
+  ALL = PCB;
+  zset(ALL);
+  nset(ALL);
+}
+:ROLC A is opcode=0x6F; (opcode2=0x07 | opcode2=0x17) & A { rolc(AL, 1, 2); }
+:LSLW A, R0 is opcode=0x6F; opcode2=0x0C & A & R0 { lsr(AL, R0); }
+:MOVW A, "@A" is opcode=0x6F; opcode2=0x0D & A {
+  AL = *:2 A:3;
+  zset(AL);
+  nset(AL);
+}
+:ASRW A, R0 is opcode=0x6F; opcode2=0x0E & A & R0 { asr(AL, R0); }
+:LSRW A, R0 is opcode=0x6F; opcode2=0x0F & A & R0 { lsr(AL, R0); }
 :MOV reg6fbrg0, A is opcode=0x6F; opcode2>=0x10 & opcode2<0x15 & A & reg6fbrg0 {
-  nset1(ALL);
-  zset1(ALL);
+  nset(ALL);
+  zset(ALL);
   reg6fbrg0=ALL;
 }
-:MOV @AL, AH is opcode=0x6F; opcode2=0x15 & AL & AH unimpl
-:MOV "@A", A is opcode=0x6F; opcode2=0x16 & A unimpl
-:LSLL A, R0 is opcode=0x6F; opcode2=0x1C & A & R0 unimpl
-:MOVW @AL, AH is opcode=0x6F; opcode2=0x1D & AL & AH unimpl
-:ASRL A, R0 is opcode=0x6F; opcode2=0x1E & A & R0 unimpl
-:LSRL A, R0 is opcode=0x6F; opcode2=0x1F & A & R0 unimpl
-:MOVX A, @reg6f+d8 is opcode=0x6F; opcode6fh=2 & opcode6fb0=0 & opcode6fb3=0 & reg6f & A; d8 unimpl
-:LSL A, R0 is opcode=0x6F; opcode2=0x2C & A & R0 unimpl
-:NRML "@"AL, AH is opcode=0x6F; opcode2=0x2D & AL & AH unimpl
-:ASR A, R0 is opcode=0x6F; opcode2=0x2E	& A & R0 unimpl
-:LSR A, R0 is opcode=0x6F; opcode2=0x2F	& A & R0 unimpl
-:MOV @reg6f+d8, A is opcode=0x6F; opcode6fh=3 & opcode6fb0=0 & opcode6fb3=0 & reg6f & A; d8 unimpl
-:MOV A, @reg6f+d8 is opcode=0x6F; opcode6fh=4 & opcode6fb0=0 & opcode6fb3=0 & reg6f & A; d8 unimpl
-:MOVW @reg6f+d8, A is opcode=0x6F; opcode6fh=3 & opcode6fb0=0 & opcode6fb3=1 & reg6f & A; d8 unimpl
-:MOVW A, @reg6f+d8 is opcode=0x6F; opcode6fh=4 & opcode6fb0=0 & opcode6fb3=1 & reg6f & A; d8 unimpl
-:MUL A is opcode=0x6F; opcode2=0x78 & A unimpl
-:MULW A is opcode=0x6F; opcode2=0x79 & A unimpl
-:DIV A is opcode=0x6F; opcode2=0x7A & A unimpl
+:MOV @AL, AH is opcode=0x6F; opcode2=0x15 & AL & AH {
+  *:2 A:3 = AH;
+  nset(AH);
+  zset(AH);
+}
+:MOV "@A", A is opcode=0x6F; opcode2=0x16 & A {
+  *:4 A:3 = A;
+  nset(A);
+  zset(A);
+}
+:LSLL A, R0 is opcode=0x6F; opcode2=0x1C & A & R0 { lsl(A, R0); }
+:MOVW @AL, AH is opcode=0x6F; opcode2=0x1D & AL & AH {
+  local tmp:3 = zext(AL);
+  *:2 tmp = AH;
+  nset(AH);
+  zset(AH);
+}
+:ASRL A, R0 is opcode=0x6F; opcode2=0x1E & A & R0 { asr(A, R0); }
+:LSRL A, R0 is opcode=0x6F; opcode2=0x1F & A & R0 { lsr(A, R0); }
+:MOVX A, @reg6f+d8 is opcode=0x6F; opcode6fh=2 & opcode6fb0=0 & opcode6fb3=0 & reg6f & A; d8 {
+  local tmp:3 = reg6f:3 + zext(d8:1);
+  ALL = sext(*:1 tmp);
+  nset(ALL);
+  zset(ALL);
+}
+:LSL A, R0 is opcode=0x6F; opcode2=0x2C & A & R0 { lsl(ALL, R0); }
+:NRML A, R0 is opcode=0x6F; opcode2=0x2D & A & R0 {
+  R0 = 0;
+  if (A == 0) goto <end>;
+<cycle>
+  if (A s< 0) goto <end>;
+  A = A << 1;
+  R0 = R0 + 1:1;
+  goto <cycle>;
+<end>
+  zset(A);
+}
+:ASR A, R0 is opcode=0x6F; opcode2=0x2E	& A & R0 { asr(ALL, R0); }
+:LSR A, R0 is opcode=0x6F; opcode2=0x2F	& A & R0 { lsr(ALL, R0); }
+:MOV @reg6f+d8, A is opcode=0x6F; opcode6fh=3 & opcode6fb0=0 & opcode6fb3=0 & reg6f & A; d8 {
+  local tmp:3 = reg6f:3 + zext(d8:1);
+  *:1 tmp = A:1;
+  nset(ALL);
+  zset(ALL);
+}
+:MOV A, @reg6f+d8 is opcode=0x6F; opcode6fh=4 & opcode6fb0=0 & opcode6fb3=0 & reg6f & A; d8 {
+  local tmp:3 = reg6f:3 + zext(d8:1);
+  ALL = *:1 tmp;
+  nset(ALL);
+  zset(ALL);
+}
+:MOVW @reg6f+d8, A is opcode=0x6F; opcode6fh=3 & opcode6fb0=0 & opcode6fb3=1 & reg6f & A; d8 {
+  local tmp:3 = reg6f:3 + zext(d8:1);
+  *:2 tmp = A:2;
+  nset(AL);
+  zset(AL);
+}
+:MOVW A, @reg6f+d8 is opcode=0x6F; opcode6fh=4 & opcode6fb0=0 & opcode6fb3=1 & reg6f & A; d8 {
+  local tmp:3 = reg6f:3 + zext(d8:1);
+  AL = *:2 tmp;
+  nset(AL);
+  zset(AL);
+}
+:MUL A is opcode=0x6F; opcode2=0x78 & A { AL = zext(AH:1) * zext(AL:1); }
+:MULW A is opcode=0x6F; opcode2=0x79 & A { A = zext(AH) * zext(AL); }
+:DIV A is opcode=0x6F; opcode2=0x7A & A {
+  local quotient = AH s/ AL;
+  local remainder = AH % AL;
+  AL = quotient;
+  AH = remainder;
+}
 
 define token B2_70 ( 8 )
   opcode70b0=(0,0)
@@ -892,31 +1099,31 @@ defbankr1: space1rw is override=0 & space1rw { export space1rw; }
 defbankr1: bover is override=1 & bover { export bover; }
 
 
-v70var: @defbank4:reg70wl2 is opcode70b34=1 & opcode70b2=0 & reg70wl2 & defbank4 { 
-  local tmp:3 = zext(reg70wl2);
-  tmp[16,8] = zext(defbank4);
+v70var: @defbank4:reg70wl2 is opcode70b34=1 & opcode70b2=0 & reg70wl2 & override=0 & defbank4 {
+  build defbank4;
+  local tmp:3 = 0x10000:3 * zext(defbank4) | zext(reg70wl2);
   export tmp;
 }
 v70var: @defbank4:reg70wl2+1 is opcode70b34=1 & opcode70b2=1 & reg70wl2 & defbank4 {
-  local tmp:3 = zext(reg70wl2) + 1:3;
-  tmp[16,8] = zext(defbank4);
+  build defbank4;
+  local tmp:3 = 0x10000:3 * zext(defbank4) | zext(reg70wl2 + 1);
   export tmp;
 }
-v70var: @defbank4:reg70w+d8 is opcode70b34=2 & reg70w & defbank4; d8 {
-  local tmp:3 = zext(reg70w) + d8;
-  tmp[16,8] = zext(defbank4);
+v70var: @defbank4:reg70w+d8 is opcode70b34=2 & reg70w & defbank4 ; d8 {
+  build defbank4;
+  local tmp:3 = 0x10000:3 * zext(defbank4) | zext(reg70w + d8);
   export tmp;
 }
-v70var: @defbank2:reg70wl1+d16 is opcode70b34=3 & opcode70b2=0 & reg70wl1 & defbank2; d16 {
-  local tmp:3 = zext(reg70wl1) + d16;
-  tmp[16,8] = zext(defbank2);
+v70var: @defbank2:reg70wl1+d16 is opcode70b34=3 & opcode70b2=0 & reg70wl1 & defbank2 ; d16 {
+  build defbank2;
+  local tmp:3 = 0x10000:3 * zext(defbank2) | zext(reg70wl1 + d16);
   export tmp;
 }
 v70var: @defbank2:reg70wl1+RW7 is opcode70b34=3 & opcode70b2=1 & opcode70b1=0 & reg70wl1 & defbank2 & RW7 {
-  local tmp:3 = zext(reg70wl1) + zext(RW7);
-  tmp[16,8] = zext(defbank2);
+  build defbank2;
+  local tmp:3 = 0x10000:3 * zext(defbank2) | zext(reg70wl1 + RW7);
   export tmp;
-} 
+}
 v70var: reloc is opcode70b34=3 & opcode70b2=1 & opcode70b1=1 & opcode70b0=0; d16 [reloc = inst_start + d16;] {
   local tmp:3 = reloc;
   export tmp;
@@ -933,15 +1140,15 @@ earl: reg70l is opcode70b34=0 & reg70l { export reg70l; }
 earl: v70var is opcode70b34!=0 ... & v70var { export *[ram]:4 v70var; }
 
 
-:ADDL A, earl is opcode=0x70; A & opcode70h3=0 ... & earl unimpl
-:SUBL A, earl is opcode=0x70; A & opcode70h3=1 ... & earl unimpl
+:ADDL A, earl is opcode=0x70; A & opcode70h3=0 ... & earl { add(A, earl); }
+:SUBL A, earl is opcode=0x70; A & opcode70h3=1 ... & earl { sub(A, earl); }
 :CWBNE earw, imm16, rel is opcode=0x70; (opcode70b234!=3 & opcode70h3=2) ... & earw; imm16; rel {
   if (earw!=imm16) goto rel;
 }
-:CMPL A, earl is opcode=0x70; A & opcode70h3=3 ... & earl unimpl
-:ANDL A, earl is opcode=0x70; A & opcode70h3=4 ... & earl unimpl
-:ORL A, earl is opcode=0x70; A & opcode70h3=5 ... & earl unimpl
-:XORL A, earl is opcode=0x70; A & opcode70h3=6 ... & earl unimpl
+:CMPL A, earl is opcode=0x70; A & opcode70h3=3 ... & earl { cmp(A, earl); }
+:ANDL A, earl is opcode=0x70; A & opcode70h3=4 ... & earl { and(A, earl); }
+:ORL A, earl is opcode=0x70; A & opcode70h3=5 ... & earl { or(A, earl); }
+:XORL A, earl is opcode=0x70; A & opcode70h3=6 ... & earl { xor(A, earl); }
 :CBNE ear, imm8, rel is opcode=0x70; (opcode70b234!=3 & opcode70h3=7) ... & ear; imm8; rel {
   if (ear!=imm8) goto rel;
 }
@@ -953,26 +1160,74 @@ earl: v70var is opcode70b34!=0 ... & v70var { export *[ram]:4 v70var; }
   push4(&:4 inst_next);
   call [earl];
 }
-:INCL earl is opcode=0x71; opcode70h3=2 ... & earl unimpl
-:DECL earl is opcode=0x71; opcode70h3=3 ... & earl unimpl
-:MOVL A, earl is opcode=0x71; opcode70h3=4 ... & earl & A unimpl
-:MOVL earl, A is opcode=0x71; opcode70h3=5 ... & earl & A unimpl
-:MOV ear, imm8 is opcode=0x71; opcode70h3=6 ... & ear; imm8 unimpl
-:MOVEA A, earw is opcode=0x71; opcode70h3=7 ... & earw & A unimpl
+:INCL earl is opcode=0x71; opcode70h3=2 ... & earl {
+  $(V) = scarry(earl,1);
+  earl = earl + 1;
+  zset(earl);
+  nset(earl);
+}
+:DECL earl is opcode=0x71; opcode70h3=3 ... & earl {
+  $(V) = sborrow(earl,1);
+  earl = earl - 1;
+  zset(earl);
+  nset(earl);
+}
+:MOVL A, earl is opcode=0x71; opcode70h3=4 ... & earl & A {
+  A = earl;
+  zset(A);
+  nset(A);
+}
+:MOVL earl, A is opcode=0x71; opcode70h3=5 ... & earl & A {
+  earl = A;
+  zset(A);
+  nset(A);
+}
+:MOV ear, imm8 is opcode=0x71; opcode70h3=6 ... & ear; imm8 {
+  ear = imm8;
+  zset(imm8:1);
+  nset(imm8:1);
+}
+:MOVEA A, earw is opcode=0x71; opcode70h3=7 ... & earw & A {
+  AL = earw;
+  zset(AL);
+  nset(AL);
+}
 ## 72
-:ROLC ear is opcode=0x72; opcode70h3=0 ... & ear unimpl
-:RORC ear is opcode=0x72; opcode70h3=1 ... & ear unimpl
-:INC ear is opcode=0x72; opcode70h3=2 ... & ear unimpl
-:DEC ear is opcode=0x72; opcode70h3=3 ... & ear unimpl
+:ROLC ear is opcode=0x72; opcode70h3=0 ... & ear { rolc(AL, 1, 1); }
+:RORC ear is opcode=0x72; opcode70h3=1 ... & ear { rorc(AL, 1, 1); }
+:INC ear is opcode=0x72; opcode70h3=2 ... & ear {
+  $(V) = scarry(ear,1);
+  ear = ear + 1;
+  zset(ear);
+  nset(ear);
+}
+:DEC ear is opcode=0x72; opcode70h3=3 ... & ear {
+  $(V) = sborrow(ear,1);
+  ear = ear - 1;
+  zset(ear);
+  nset(ear);
+}
 :MOV A, ear is opcode=0x72; opcode70h3=4 ... & ear & A {
   AH = AL;
   AL = zext(ear);
-  zset1(ALL);
-  nset1(ALL);
+  zset(ALL);
+  nset(ALL);
 }
-:MOV ear, A is opcode=0x72; opcode70h3=5 ... & ear & A unimpl
-:MOVX A, ear is opcode=0x72; opcode70h3=6 ... & ear & A unimpl
-:XCH A, ear is opcode=0x72; opcode70h3=7 ... & ear & A unimpl
+:MOV ear, A is opcode=0x72; opcode70h3=5 ... & ear & A {
+  ear = ALL;
+  zset(ALL);
+  nset(ALL);
+}
+:MOVX A, ear is opcode=0x72; opcode70h3=6 ... & ear & A {
+  ALL = ear;
+  zset(ALL);
+  nset(ALL);
+}
+:XCH A, ear is opcode=0x72; opcode70h3=7 ... & ear & A {
+  local tmp:1 = ALL;
+  ALL = ear;
+  ear = tmp;
+}
 ## 73
 :JMP earw is opcode=0x73; opcode70h3=0 ... & earw {
   local addr:3=0:3;
@@ -986,125 +1241,189 @@ earl: v70var is opcode70b34!=0 ... & v70var { export *[ram]:4 v70var; }
   addr[0,16] = earw;
   addr[16,8] = PCB;
   call [addr];
-  
+
 }
-:INCW earw is opcode=0x73; opcode70h3=2 ... & earw unimpl
-:DECW earw is opcode=0x73; opcode70h3=3 ... & earw unimpl
+:INCW earw is opcode=0x73; opcode70h3=2 ... & earw {
+  $(V) = scarry(earw,1);
+  earw = earw + 1;
+  zset(earw);
+  nset(earw);
+}
+:DECW earw is opcode=0x73; opcode70h3=3 ... & earw {
+  $(V) = sborrow(earw,1);
+  earw = earw - 1;
+  zset(earw);
+  nset(earw);
+}
 :MOVW A, earw is opcode=0x73; opcode70h3=4 ... & earw & A {
   AH = AL;
   AL = earw;
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
-:MOVW earw, A is opcode=0x73; opcode70h3=5 ... & earw & A unimpl
-:MOVW earw, imm16 is opcode=0x73; opcode70h3=6 ... & earw; imm16 unimpl
-:XCHW A, earw is opcode=0x73; opcode70h3=7 ... & earw & A unimpl
+:MOVW earw, A is opcode=0x73; opcode70h3=5 ... & earw & A {
+  earw = A:2;
+  zset(AL);
+  nset(AL);
+}
+:MOVW earw, imm16 is opcode=0x73; opcode70h3=6 ... & earw; imm16 {
+  earw = imm16;
+  zset(imm16:2);
+  nset(imm16:2);
+}
+:XCHW A, earw is opcode=0x73; opcode70h3=7 ... & earw & A {
+  local tmp:2 = AL;
+  AL = earw;
+  earw = tmp;
+}
 ## 74
-:ADD A, ear is opcode=0x74; opcode70h3=0 ... & ear & A unimpl
-:SUB A, ear is opcode=0x74; opcode70h3=1 ... & ear & A unimpl
-:ADDC A, ear is opcode=0x74; opcode70h3=2 ... & ear & A unimpl
-:CMP A, ear is opcode=0x74; opcode70h3=3 ... & ear & A unimpl
-:AND A, ear is opcode=0x74; opcode70h3=4 ... & ear & A unimpl
-:OR A, ear is opcode=0x74; opcode70h3=5 ... & ear & A unimpl
-:XOR A, ear is opcode=0x74; opcode70h3=6 ... & ear & A unimpl
+:ADD A, ear is opcode=0x74; opcode70h3=0 ... & ear & A { add(A, zext(ear)); }
+:SUB A, ear is opcode=0x74; opcode70h3=1 ... & ear & A { sub(A, zext(ear)); }
+:ADDC A, ear is opcode=0x74; opcode70h3=2 ... & ear & A { addc(A, zext(ear)); }
+:CMP A, ear is opcode=0x74; opcode70h3=3 ... & ear & A { cmp(A, zext(ear)); }
+:AND A, ear is opcode=0x74; opcode70h3=4 ... & ear & A { and(A, zext(ear)); }
+:OR A, ear is opcode=0x74; opcode70h3=5 ... & ear & A { or(A, zext(ear)); }
+:XOR A, ear is opcode=0x74; opcode70h3=6 ... & ear & A { xor(A, zext(ear)); }
 :DBNZ ear, rel is opcode=0x74; opcode70h3=7 ... & ear; rel {
   if (ear!=0:1) goto rel;
 }
 ## 75
-:ADD ear, A is opcode=0x75; opcode70h3=0 ... & ear & A unimpl
-:SUB ear, A is opcode=0x75; opcode70h3=1 ... & ear & A unimpl
-:SUBC A, ear is opcode=0x75; opcode70h3=2 ... & ear & A unimpl
-:NEG ear is opcode=0x75; opcode70h3=3 ... & ear unimpl
-:AND ear, A is opcode=0x75; opcode70h3=4 ... & ear & A unimpl
-:OR ear, A is opcode=0x75; opcode70h3=5 ... & ear & A unimpl
-:XOR ear, A is opcode=0x75; opcode70h3=6 ... & ear & A unimpl
-:NOT ear is opcode=0x75; opcode70h3=7 ... & ear unimpl
+:ADD ear, A is opcode=0x75; opcode70h3=0 ... & ear & A { add(ear, ALL); }
+:SUB ear, A is opcode=0x75; opcode70h3=1 ... & ear & A { sub(ear, ALL); }
+:SUBC A, ear is opcode=0x75; opcode70h3=2 ... & ear & A { subc(ear, ALL); }
+:NEG ear is opcode=0x75; opcode70h3=3 ... & ear { neg(ear); }
+:AND ear, A is opcode=0x75; opcode70h3=4 ... & ear & A { and(ear, ALL); }
+:OR ear, A is opcode=0x75; opcode70h3=5 ... & ear & A { or(ear, ALL); }
+:XOR ear, A is opcode=0x75; opcode70h3=6 ... & ear & A { xor(ear, ALL); }
+:NOT ear is opcode=0x75; opcode70h3=7 ... & ear { not(ear); }
 ## 76
-:ADDW A, earw is opcode=0x76; opcode70h3=0 ... & earw & A unimpl
-:SUBW A, earw is opcode=0x76; opcode70h3=1 ... & earw & A unimpl
-:ADDCW A, earw is opcode=0x76; opcode70h3=2 ... & earw & A unimpl
-:CMPW A, earw is opcode=0x76; opcode70h3=3 ... & earw & A unimpl
-:ANDW A, earw is opcode=0x76; opcode70h3=4 ... & earw & A unimpl
-:ORW A, earw is opcode=0x76; opcode70h3=5 ... & earw & A unimpl
-:XORW A, earw is opcode=0x76; opcode70h3=6 ... & earw & A unimpl
+:ADDW A, earw is opcode=0x76; opcode70h3=0 ... & earw & A { add(A, zext(earw)); }
+:SUBW A, earw is opcode=0x76; opcode70h3=1 ... & earw & A { sub(A, zext(earw)); }
+:ADDCW A, earw is opcode=0x76; opcode70h3=2 ... & earw & A { addc(A, zext(earw)); }
+:CMPW A, earw is opcode=0x76; opcode70h3=3 ... & earw & A { cmp(A, zext(earw)); }
+:ANDW A, earw is opcode=0x76; opcode70h3=4 ... & earw & A { and(A, zext(earw)); }
+:ORW A, earw is opcode=0x76; opcode70h3=5 ... & earw & A { or(A, zext(earw)); }
+:XORW A, earw is opcode=0x76; opcode70h3=6 ... & earw & A { xor(A, zext(earw)); }
 :DWBNZ earw, rel is opcode=0x76; opcode70h3=7 ... & earw; rel {
   if (earw!=0:2) goto rel;
 }
 ## 77
-:ADDW earw, A is opcode=0x77; opcode70h3=0 ... & earw & A {
-  V = scarry(earw,AL);
-  C = carry(earw,AL);  
-  earw = earw + AL;
-  zset2(earw);
-  nset2(earw);
-}
-:SUBW earw, A is opcode=0x77; opcode70h3=1 ... & earw & A unimpl
-:SUBCW A, earw is opcode=0x77; opcode70h3=2 ... & earw & A unimpl
-:NEGW earw is opcode=0x77; opcode70h3=3 ... & earw unimpl
-:ANDW earw, A is opcode=0x77; opcode70h3=4 ... & earw & A unimpl
-:ORW earw, A is opcode=0x77; opcode70h3=5 ... & earw & A unimpl
-:XORW earw, A is opcode=0x77; opcode70h3=6 ... & earw & A unimpl
-:NOTW earw is opcode=0x77; opcode70h3=7 ... & earw unimpl
+:ADDW earw, A is opcode=0x77; opcode70h3=0 ... & earw & A { add(earw, AL); }
+:SUBW earw, A is opcode=0x77; opcode70h3=1 ... & earw & A { sub(earw, AL); }
+:SUBCW A, earw is opcode=0x77; opcode70h3=2 ... & earw & A { subc(earw, AL); }
+:NEGW earw is opcode=0x77; opcode70h3=3 ... & earw { neg(earw); }
+:ANDW earw, A is opcode=0x77; opcode70h3=4 ... & earw & A { and(earw, AL); }
+:ORW earw, A is opcode=0x77; opcode70h3=5 ... & earw & A { or(earw, AL); }
+:XORW earw, A is opcode=0x77; opcode70h3=6 ... & earw & A { xor(earw, AL); }
+:NOTW earw is opcode=0x77; opcode70h3=7 ... & earw { not(earw); }
 ## 0x78
 
-uw: "U" A, ear is A & opcode70h2=0 ... & ear { export &:2 ear; }
-uw: "UW" A, earw is A &  opcode70h2=1 ... & earw { export earw; }
-uw: " " A, ear is A & opcode70h2=2 ... & ear { export &:2 ear; }
-uw: "W" A, earw is A & opcode70h2=3 ... & earw { export earw; } 
+u: "U" A, ear is A & opcode70h2=0 ... & ear { export &:2 ear; }
+uw: "UW" A, earw is A & opcode70h2=1 ... & earw { export earw; }
+u: " " A, ear is A & opcode70h2=2 ... & ear { export &:2 ear; }
+uw: "W" A, earw is A & opcode70h2=3 ... & earw { export earw; }
 
-:MUL^uw is opcode=0x78; opcode70hb3=0 ... & uw unimpl
-:DIV^uw is opcode=0x78; opcode70hb3=1 ... & uw unimpl
-:MOVEA reg7b, earw is opcode=0x79; reg7b ... & earw unimpl
-:MOV reg7r, ear is opcode=0x7A; reg7r ... & ear unimpl
+:MUL^u is opcode=0x78; opcode70hb3=0 ... & u { mul(AL, u:2); }
+:DIV^u is opcode=0x78; opcode70hb3=1 ... & u { div(AL, u:2); }
+:MUL^uw is opcode=0x78; opcode70hb3=0 ... & uw { mulw(A, uw:2); }
+:DIV^uw is opcode=0x78; opcode70hb3=1 ... & uw { divw(A, uw:2); }
+:MOVEA reg7b, earw is opcode=0x79; reg7b ... & earw {
+  reg7b = earw;
+  zset(reg7b);
+  nset(reg7b);
+}
+:MOV reg7r, ear is opcode=0x7A; reg7r ... & ear {
+  reg7r = ear;
+  zset(reg7r);
+  nset(reg7r);
+}
 :MOVW reg7b, earw is opcode=0x7B; reg7b ... & earw {
   reg7b = earw;
-  zset2(reg7b);
-  nset2(reg7b);
+  zset(reg7b);
+  nset(reg7b);
 }
-:MOV reg7r, ear is opcode=0x7C; reg7r ... & ear unimpl
-:MOVW reg7b, earw is opcode=0x7D; reg7b ... & earw unimpl
-:XCH reg7r, ear is opcode=0x7E; reg7r ... & ear unimpl
-:XCH reg7b, earw is opcode=0x7F; reg7b ... & earw unimpl
+:MOV ear, reg7r is opcode=0x7C; reg7r ... & ear {
+  ear = reg7r;
+  zset(reg7r);
+  nset(reg7r);
+}
+:MOVW earw, reg7b is opcode=0x7D; reg7b ... & earw {
+  earw = reg7b;
+  zset(reg7b);
+  nset(reg7b);
+}
+:XCH reg7r, ear is opcode=0x7E; reg7r ... & ear {
+  local tmp:1 = reg7r;
+  reg7r = ear;
+  ear = tmp;
+}
+:XCH reg7b, earw is opcode=0x7F; reg7b ... & earw {
+  local tmp:2 = reg7b;
+  reg7b = earw;
+  earw = tmp;
+}
 :MOV A, reg1r is opcode1c1=0x8 & opcode1c2=0 & reg1r & A {
-  zset1(reg1r);
-  nset1(reg1r);
+  zset(reg1r);
+  nset(reg1r);
   AH=AL;
   AL=zext(reg1r);
 }
 :MOVW A, reg1rw is opcode1c1=0x8 & opcode1c2=1 & reg1rw & A {
-  zset2(reg1rw);
-  nset2(reg1rw);
+  zset(reg1rw);
+  nset(reg1rw);
   AH=AL;
   AL=reg1rw;
 }
-:MOV reg1r, A is opcode1c1=0x9 & opcode1c2=0 & reg1r & A unimpl
-:MOVW reg1rw, A is opcode1c1=0x9 & opcode1c2=1 & reg1rw & A unimpl
+:MOV reg1r, A is opcode1c1=0x9 & opcode1c2=0 & reg1r & A {
+  reg1r = A:1;
+  zset(reg1r);
+  nset(reg1r);
+}
+:MOVW reg1rw, A is opcode1c1=0x9 & opcode1c2=1 & reg1rw & A {
+  reg1rw = A:2;
+  zset(reg1rw);
+  nset(reg1rw);
+}
 :MOV reg1r, imm8 is opcode1c1=0xA & opcode1c2=0 & reg1r; imm8 {
-  zset1(imm8:1);
-  nset1(imm8:1);
+  zset(imm8:1);
+  nset(imm8:1);
   reg1r = imm8:1;
 }
 :MOVW reg1rw, imm16 is opcode1c1=0xA & opcode1c2=1 & reg1rw; imm16 {
-  zset2(imm16:2);
-  nset2(imm16:2);
+  zset(imm16:2);
+  nset(imm16:2);
   reg1rw = imm16:2;
 }
-:MOVX A, reg1r is opcode1c1=0xB & opcode1c2=0 & reg1r & A unimpl
+:MOVX A, reg1r is opcode1c1=0xB & opcode1c2=0 & reg1r & A {
+  A = sext(reg1r);
+  zset(A);
+  nset(A);
+}
 :MOVW A, @defbankr1:reg1rw+d8 is opcode1c1=0xB & opcode1c2=1 & A & reg1rw & defbankr1; d8 {
-  local tmp:3 = zext(reg1rw) + d8;
-  tmp[16,8] = defbankr1;
+  build defbankr1;
+  local tmp:3 = 0x10000:3 * zext(defbankr1) | (zext(reg1rw) + d8);
   AH=AL;
   AL=*:2 tmp;
-  zset2(AL);
-  nset2(AL);
+  zset(AL);
+  nset(AL);
 }
-:MOVX A, @reg1rw+d8 is opcode1c1=0xC & opcode1c2=0 & A & reg1rw; d8 unimpl
-:MOVX @reg1rw+d8, A is opcode1c1=0xC & opcode1c2=1 & A & reg1rw; d8 unimpl
+:MOVX A, @reg1rw+d8 is opcode1c1=0xC & opcode1c2=0 & A & reg1rw; d8 {
+  local tmp:3 = zext(reg1rw) + d8;
+  A = sext(*:4 tmp);
+  zset(A);
+  nset(A);
+}
+:MOVX @reg1rw+d8, A is opcode1c1=0xC & opcode1c2=1 & A & reg1rw; d8 {
+  local tmp:3 = zext(reg1rw) + d8;
+  *:4 tmp = sext(A);
+  zset(A);
+  nset(A);
+}
 :MOVN A, opcode1c3 is opcode1c1=0xD & opcode1c3 & A {
   AH=AL;
   AL=zext(opcode1c3:1);
-  N=0:1;
-  zset1(opcode1c3:1);
+  $(N)=0:1;
+  zset(opcode1c3:1);
 }
 :CALL vct4 is opcode1c1=0xE & vct4 {
   push2(&:2 inst_next);

@@ -7,7 +7,7 @@
  slafile="F2MC.sla"
  processorspec="F2MC.pspec"
  id="F2MC:LE:24:default">
- <description>asdba MeP-c4, little endian</description>
+ <description>Fujitsu F2MC-16LX, little endian</description>
  <compiler name="default" spec="F2MC.cspec" id="default"/>
  </language>
-</language_definitions> 
+</language_definitions>
