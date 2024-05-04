@@ -1,6 +1,6 @@
 <compiler_spec>
  <global>
- <range space="ram"/>	
+ <range space="ram"/>
  </global>
  <stackpointer register="SS" space="ram"/>
  <default_proto>
