@@ -976,7 +976,7 @@ a6caddr: addr16 is opcode6caddr=3; addr16 { export addr16; }
   nset(ALL);
 }
 :ROLC A is opcode=0x6F; (opcode2=0x07 | opcode2=0x17) & A { rolc(AL, 1, 2); }
-:LSLW A, R0 is opcode=0x6F; opcode2=0x0C & A & R0 { lsr(AL, R0); }
+:LSLW A, R0 is opcode=0x6F; opcode2=0x0C & A & R0 { lsl(AL, R0); }
 :MOVW A, "@A" is opcode=0x6F; opcode2=0x0D & A {
   AL = *:2 A:3;
   zset(AL);
@@ -994,10 +994,10 @@ a6caddr: addr16 is opcode6caddr=3; addr16 { export addr16; }
   nset(AH);
   zset(AH);
 }
-:MOV "@A", A is opcode=0x6F; opcode2=0x16 & A {
-  *:4 A:3 = A;
-  nset(A);
-  zset(A);
+:MOVX A, "@A" is opcode=0x6F; opcode2=0x16 & A {
+  AL = sext(*:1 A:3);
+  nset(ALL);
+  zset(ALL);
 }
 :LSLL A, R0 is opcode=0x6F; opcode2=0x1C & A & R0 { lsl(A, R0); }
 :MOVW @AL, AH is opcode=0x6F; opcode2=0x1D & AL & AH {
@@ -1413,11 +1413,11 @@ uw: "W" A, earw is A & opcode70h2=3 ... & earw { export earw; }
   zset(A);
   nset(A);
 }
-:MOVX @reg1rw+d8, A is opcode1c1=0xC & opcode1c2=1 & A & reg1rw; d8 {
+:MOVW @reg1rw+d8, A is opcode1c1=0xC & opcode1c2=1 & A & reg1rw; d8 {
   local tmp:3 = zext(reg1rw) + d8;
-  *:4 tmp = sext(A);
-  zset(A);
-  nset(A);
+  *:2 tmp = sext(AL);
+  zset(AL);
+  nset(AL);
 }
 :MOVN A, opcode1c3 is opcode1c1=0xD & opcode1c3 & A {
   AH=AL;
