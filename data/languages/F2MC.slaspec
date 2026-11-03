@@ -1114,9 +1114,8 @@ v70var: @defbank4:reg70w+d8 is opcode70b34=2 & reg70w & defbank4 ; d8 {
   local tmp:3 = 0x10000:3 * zext(defbank4) | zext(reg70w + d8);
   export tmp;
 }
-v70var: @defbank2:reg70wl1+d16 is opcode70b34=3 & opcode70b2=0 & reg70wl1 & defbank2 ; d16 {
-  build defbank2;
-  local tmp:3 = 0x10000:3 * zext(defbank2) | zext(reg70wl1 + d16);
+v70var: @space4:reg70wl2+d16 is opcode70b34=3 & opcode70b2=0 & reg70wl2 & space4 ; d16 {
+  local tmp:3 = 0x10000:3 * zext(space4) | zext(reg70wl2 + d16);
   export tmp;
 }
 v70var: @defbank2:reg70wl1+RW7 is opcode70b34=3 & opcode70b2=1 & opcode70b1=0 & reg70wl1 & defbank2 & RW7 {
